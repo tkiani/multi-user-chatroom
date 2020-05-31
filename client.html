@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type ="text/javascript">
+
+  let socketio = io.connect();
+
+  //Get the username fro the chat
+  let username = prompt("Please enter a user name to join the chat with: ");
+  //set the default room for the user to join as the lobby
+  let defaultRoom = 'Lobby';
+  
+  socketio.emit("new-user", {username:username,defaultRoom:defaultRoom});
+
+  socketio.on("message_to_client",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    if(data.isBold){
+      div.innerHTML ="<p>" + data.username + ": " + "<b>" + data.message + "</b>" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    else if(data.isItalics){
+      div.innerHTML ="<p>" + data.username + ": " + "<i>" +data.message + "</i>" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    else{
+      div.innerHTML ="<p>" + data.username + ": " + data.message + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    document.getElementById("chatlog").appendChild(div);
+  });
+
+
+  //display when a user is connected for the first time
+  socketio.on("user-connected", data=>{
+   document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + " has joined the chat." + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+  });
+
+  //display when the user is disconnected
+  socketio.on("user-disconnected", data=>{
+   document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + " has left the chat." + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+  });
+
+  //display when a user connects to a chat room
+  socketio.on("connected-room",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + ": has joined the chat room: " + data.room + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+    activeUsers(data);
+  });
+
+   //display when a user disconnects to a chat room
+  socketio.on("disconnected-room",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + " has left the chat room: "+ data.room + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+    activeUsers(data);
+  });
+
+   //display when a user is kicked out from a chat room
+  socketio.on("kickedout-room",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + " has been kicked out of the chat room("+ data.room+ "). Join Lobby to send messages. " + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+    makeUserLeave();
+    activeUsers(data);
+  });
+
+  socketio.on("banned-room",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + data.username + " has been banned from the chat room.(You may not enter again after you exit)" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+    activeUsers(data);
+  });
+
+  socketio.on("bannedFromJoining-room",function(data){
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" + " You have been banned from joining the requested chat room. You may stay in the public lobby." + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+    activeUsers(data);
+  });
+
+  function sendMessage(){
+    let italicsValue =document.getElementById("italics");
+    let boldValue = document.getElementById("bold");
+
+    let isItalics = false;
+    let isBold = false;
+
+  if(italicsValue.checked == true){
+    isItalics = true;
+  }
+  else if(boldValue.checked == true){
+    isBold = true;
+  }
+    socketio.emit("message_to_server", {message:(document.getElementById("message_input").value), isBold:isBold, isItalics:isItalics});
+    document.getElementById("message_input").value = "";
+  };
+
+  socketio.on("activeUsers", function(data) {
+  activeUsers(data);
+
+  var ele = document.getElementsByName("radio2");
+   for(var i=0;i<ele.length;i++)
+      ele[i].checked = false;
+  });
+
+  function makeUserLeave(){
+    socketio.emit("leaveRoom","")
+  }
+
+
+function newRoom() {
+let roomName = document.getElementById("newRoomName").value;
+let password = document.getElementById("newRoomPassword").value;
+let displayRoomName = document.createElement("p"); 
+let button = document.createElement("button");
+button.setAttribute("onclick", "changeRoom(\'"+roomName+"\')");
+button.setAttribute("id", "button"+roomName);
+displayRoomName.innerHTML=roomName;
+button.innerHTML="Join Room";
+
+document.getElementById("room-list").appendChild(displayRoomName);
+document.getElementById("room-list").appendChild(button);
+
+socketio.emit("newRoom", {roomName:roomName, password:password});
+document.getElementById("newRoomName").value = "";
+document.getElementById("newRoomPassword").value = "";
+}
+
+function changeRoom(room) {
+    let password = prompt("Please enter password to join! (Hit OK to enter if no password is required");
+    socketio.emit("changeRoom", {room:room, password:password});
+}
+
+socketio.on("updateRoom",function(data) {
+    document.getElementById("room-list").innerHTML = '';
+    for (i = 0; i < data.rooms.length; i++) {
+      let p = document.createElement("p"); 
+      let button = document.createElement("button");
+      button.setAttribute("onclick", "changeRoom(\'" + data.rooms[i] + "\')");
+      button.setAttribute("id", "button"+data.rooms[i]);
+      button.innerHTML="Join Room";
+      p.innerHTML=data.rooms[i];
+      document.getElementById("room-list").appendChild(p);
+      document.getElementById("room-list").appendChild(button);
+    }
+  });
+
+  function activeUsers(data){
+    document.getElementById("user-list").innerHTML = '';
+    for (i=0; i < data.userinfo.length; i ++){ 
+      if ((data.userinfo[i].room == data.room) && (data.userinfo[i].username !== undefined)) { 
+        let p = document.createElement("p");
+        p.innerHTML ='<h4>'+ data.userinfo[i].username + '</h4>';
+        document.getElementById("user-list").appendChild(p);
+      }
+    }
+  };
+  
+  function displayEmoji(){
+    let grinning = document.getElementById("grinning");
+    let kissing = document.getElementById("kissing");
+    let winking = document.getElementById("winking");
+    let tounge = document.getElementById("tounge");
+
+    let isgrinning = false;
+    let iskissing = false;
+    let iswinking = false;
+    let istounge = false;
+
+    
+  if(grinning.checked==true){
+    isgrinning = true;
+    socketio.emit("emoji", {isgrinning:isgrinning,iskissing:iskissing, iswinking:iswinking,istounge:istounge});
+  }
+  else if(kissing.checked==true){
+    iskissing = true;
+    socketio.emit("emoji", {isgrinning:isgrinning,iskissing:iskissing, iswinking:iswinking,istounge:istounge});
+  }
+  else if(winking.checked==true){
+    iswinking = true;
+    socketio.emit("emoji", {isgrinning:isgrinning,iskissing:iskissing, iswinking:iswinking,istounge:istounge});
+  }
+  else if(tounge.checked==true){
+    istounge = true;
+    socketio.emit("emoji", {isgrinning:isgrinning,iskissing:iskissing, iswinking:iswinking,istounge:istounge});
+  }
+
+  var ele = document.getElementsByName("emoji");
+   for(var i=0;i<ele.length;i++)
+      ele[i].checked = false;
+  }
+
+
+  socketio.on("displayEmoji", function(data) {
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    if(data.isgrinning){
+      div.innerHTML ="<p>" + data.username + ": 😀"  + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    else if(data.iskissing){
+      div.innerHTML ="<p>" + data.username + ": 😘" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    else if(data.iswinking){
+      div.innerHTML ="<p>" + data.username + ": 😉" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    else if(data.istounge){
+      div.innerHTML ="<p>" + data.username + ": 😛" + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    }
+    document.getElementById("chatlog").appendChild(div);
+  });
+
+
+   // function to temporarily kick user out of room
+   function kickUser() {
+    let kickThisUser = document.getElementById("userToKick").value;
+    socketio.emit("kickUser", {kickusername: kickThisUser});
+    document.getElementById("userToKick").value = "";
+  }
+
+  //funtion to permanently ban user from a chat room
+  function banUser(room) {
+    let banusername = document.getElementById("userToBan").value;
+    socketio.emit("banUser", {banusername: banusername, currentChatRoom: room});
+    document.getElementById("userToBan").value = "";
+  }
+
+
+  //function to send private messages
+  function privateMessage(){
+  let receiverUsername = document.getElementById("pm-receiver").value;
+  let privatemtext = document.getElementById("pm-text").value;
+  socketio.emit("pm", {receiver: receiverUsername, pmtext: privatemtext});
+  document.getElementById(pm-receiver).value = "";
+  document.getElementById(pm-text).value = "";
+  }
+
+
+    socketio.on("privateMessage", function(data) {
+    let from = data.from;
+    let message = data.message;
+    document.getElementById("chatlog").appendChild(document.createElement("hr"));
+    let div = document.createElement("div");
+    let divd = document.createElement("p");
+    div.innerHTML ="<p>" +"(private message)" +from + ": " + data.message + "<i style='font-size:10px;float:right; '>" + "</i></p>";
+    document.getElementById("chatlog").appendChild(div);
+  });
+
+
+
+  function changeBackground(){
+    let yellow = document.getElementById("yellow");
+    let green = document.getElementById("green");
+    let white = document.getElementById("white");
+    let cadetBlue = document.getElementById("cadetblue");
+
+    
+    if(yellow.checked==true){
+    document.getElementById("message-div").style.background = "yellow";
+    document.getElementById("rooms-div").style.background = "yellow";
+    }
+  else if(green.checked==true){
+    document.getElementById("message-div").style.background = "green";
+    document.getElementById("rooms-div").style.background = "green";
+  }
+  else if(white.checked==true){
+    document.getElementById("message-div").style.background = "white";
+    document.getElementById("rooms-div").style.background = "white";
+  }
+  else if(cadetBlue.checked==true){
+    document.getElementById("message-div").style.background = "cadetblue";
+    document.getElementById("rooms-div").style.background = "cadetblue";
+  }
+  }
+
+ 
+
+</script>
+<style>
+
+.rooms-div{
+width: 360px;
+height: 100%;
+position: absolute;
+border-right: 2px solid black;
+text-align: center;
+text-decoration: underline;
+background-color: cadetblue;
+margin-left: 1500px;
+padding: 10px;
+}
+
+.activeusers-div{
+width: 400px;
+height: 100%;
+text-align: center;
+text-decoration: underline;
+border-right: black;
+border-width: 2px;
+margin-top: 5px;
+border-right: 2px solid black;
+position: absolute;
+margin-left:1100px ;
+}
+
+.message-div{
+  width: 1100px;
+  height: 100%;
+  padding: 10px;
+  border-right: 2px solid black;
+  border-left: 2px solid black;
+  margin-right: 600px;
+  position: absolute;
+  background-color: cadetblue;
+}
+
+</style>
+</head>
+<body>
+ 
+
+<div class="message-div" id="message-div">
+
+  <div id="messageHeader">
+    <input type="text" id="message_input" onkeydown = "if (event.keyCode == 13) document.getElementById('send_button').click()"/>
+    <input type="radio" id="italics" value="italics" name="radio2">Italics</input>
+    <input type="radio" id="bold" value="bold" name="radio2">Bold</input>
+    <button onclick="sendMessage()" id="send_button">send</button>
+
+<div id="backgroundColorSelector" style="float: right; text-decoration: wavy;">
+    <label for="background" style="font-size: 20px;">Select Back Ground Color</label>
+    <input type="radio" id="yellow" value="yellow" name="radio3" onclick="changeBackground()" >Yellow</input>
+    <input type="radio" id="green" value="green" name="radio3" onclick="changeBackground()" >Green</input> 
+    <input type="radio" id="white" value="white" name="radio3" onclick="changeBackground()">White</input>
+    <input type="radio" id="cadetblue" value="cadetblue" name="radio3" onclick="changeBackground()" checked>Cadet Blue</input>
+  </div>
+<br>
+
+
+<div class="displayEmoji" id="displayEmoji" name = "emoji">
+  <input type="radio" id="grinning" value="grinning" name="radio4" onclick="displayEmoji()" >😀</input>
+  <input type="radio" id="kissing" value="kissing" name="radio4" onclick="displayEmoji()" >😘</input> 
+  <input type="radio" id="winking" value="winking" name="radio4" onclick="displayEmoji()">😉</input>
+  <input type="radio" id="tounge" value="tounge" name="radio4" onclick="displayEmoji()">😛</input>
+
+</div>
+    <div id="chatlog"></div>
+  </div>
+
+  </div>
+
+
+  <div class = "rooms-div" id="rooms-div">
+    <h3>Available Rooms</h3>
+    <div id="rooms"></div>
+    <div id="room-list"></div>
+    <br>
+    <div id="new-room">
+      <h4>Create a New Room Here</h4>
+      <input type="text" id="newRoomName" placeholder="Room Name"><br>
+      <input type="text" id="newRoomPassword" placeholder="Room Password"><br><br>
+      <button id="createNewRoom" onclick="newRoom()">Create New Room</button>
+   </div>
+  </div>
+
+    <div class="activeusers-div"> 
+   <h3>Active Users in the chat room</h3>
+    <div id="users"></div>
+    <div id="user-list"></div>
+    <input type="text" id="userToKick" placeholder="Kick User"/><br><br>
+    <button onclick="kickUser()" id="kick_button" value="Kick User">Kick User</button>
+    <br><br>
+    <input type="text" id="userToBan" placeholder="Ban User"/><br><br>
+    <button onclick="banUser()" id="userToBan" value="Ban User">Ban User</button>
+    <br><br>
+    <input type="text" id="pm-receiver" placeholder="Enter username"><br>
+    <input type="text" id="pm-text" placeholder="Enter Private Message"><br><br>
+    <button onclick="privateMessage()">Private Message</button>
+    </div>
+
+  </body>
+  </html>
+

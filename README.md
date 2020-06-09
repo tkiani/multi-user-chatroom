@@ -1,4 +1,4 @@
-# CSE330 Multi User Chat Room
+# Multi User Chat Room
 
 A project made for CSE330-CREATIVE PROGRAMMING AND RAPID PROTYPING. Functionality:
 
